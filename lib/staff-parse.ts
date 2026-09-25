@@ -1,8 +1,13 @@
-import { asRecord, pickString } from "./api-parse";
+import { asRecord, pickNumber, pickString } from "./api-parse";
 import type {
   ConfirmResponse,
   CustomerPreview,
   LuckyDrawEntry,
+  StaffAuditAction,
+  StaffAuditEvent,
+  StaffDashboard,
+  StaffDashboardCounters,
+  StaffDashboardCustomer,
   StaffLoginResponse,
   StaffProfile,
   ValidateResponse,
@@ -121,6 +126,11 @@ export function parseConfirm(body: unknown): ConfirmResponse {
     ),
     customer,
     entries,
+    pointsDeducted: pickNumber(
+      payload.pointsDeducted,
+      payload.points_deducted,
+    ),
+    newBalance: pickNumber(payload.newBalance, payload.new_balance),
   };
 }
 
@@ -134,4 +144,155 @@ export function parseReprint(body: unknown): LuckyDrawEntry {
       entryCode: pickString(payload.entryCode, payload.entry_code, payload.code),
     }
   );
+}
+
+function pickInt(...values: unknown[]) {
+  return pickNumber(...values) ?? 0;
+}
+
+function parseCounters(value: unknown): StaffDashboardCounters {
+  const record = asRecord(value) ?? {};
+  return {
+    scans: pickInt(record.scans),
+    validScans: pickInt(record.validScans, record.valid_scans),
+    invalidScans: pickInt(record.invalidScans, record.invalid_scans),
+    confirms: pickInt(record.confirms),
+    entriesRedeemed: pickInt(record.entriesRedeemed, record.entries_redeemed),
+    reprints: pickInt(record.reprints),
+    uniqueCustomers: pickInt(record.uniqueCustomers, record.unique_customers),
+  };
+}
+
+function parseDashboardCustomer(
+  value: unknown,
+  index: number,
+): StaffDashboardCustomer {
+  const record = asRecord(value) ?? {};
+  const customer = customerFromUnknown(record.customer) ?? customerFromUnknown(record);
+  return {
+    userId:
+      pickString(record.userId, record.user_id, record.id) ??
+      `customer_${index}`,
+    firstName: customer?.firstName ?? pickString(record.firstName, record.first_name) ?? "",
+    lastName: customer?.lastName ?? pickString(record.lastName, record.last_name) ?? "",
+    phoneMasked:
+      customer?.phoneMasked ??
+      pickString(record.phoneMasked, record.phone_masked, record.maskedPhone),
+    scanCount: pickInt(record.scanCount, record.scan_count, record.scans),
+    confirmCount: pickInt(record.confirmCount, record.confirm_count, record.confirms),
+    reprintCount: pickInt(record.reprintCount, record.reprint_count, record.reprints),
+  };
+}
+
+export function parseDashboard(body: unknown): StaffDashboard {
+  const payload = asRecord(body) ?? {};
+  const customers = payload.customersToday ?? payload.customers_today ?? payload.customers;
+  return {
+    date: pickString(payload.date) ?? "",
+    timezone: pickString(payload.timezone, payload.timeZone) ?? "Asia/Karachi",
+    mine: parseCounters(payload.mine ?? payload.staff ?? payload),
+    mall: parseCounters(payload.mall ?? payload.store ?? {}),
+    customersToday: Array.isArray(customers)
+      ? customers.map(parseDashboardCustomer)
+      : [],
+  };
+}
+
+function parseAction(value: unknown): StaffAuditAction {
+  const raw = (pickString(value) ?? "").toLowerCase();
+  if (raw.includes("reprint")) return "reprint";
+  if (raw.includes("confirm") || raw.includes("redeem")) return "confirm";
+  return "validate";
+}
+
+function parseSuccess(record: Record<string, unknown>) {
+  if (typeof record.success === "boolean") return record.success;
+  if (typeof record.ok === "boolean") return record.ok;
+  if (typeof record.valid === "boolean") return record.valid;
+  return !pickString(record.reason, record.error);
+}
+
+function codesFromRecord(record: Record<string, unknown>): string[] {
+  const sources = [record, asRecord(record.metadata) ?? {}];
+  const found: string[] = [];
+  for (const source of sources) {
+    const single = pickString(
+      source.entryCode,
+      source.entry_code,
+      source.code,
+      source.voucherCode,
+      source.voucher_code,
+    );
+    if (single) found.push(single);
+    const list = source.codes ?? source.entryCodes ?? source.entry_codes;
+    if (Array.isArray(list)) {
+      for (const item of list) {
+        if (typeof item === "string" && item.trim()) found.push(item.trim());
+      }
+    }
+  }
+  return [...new Set(found)];
+}
+
+function parseAuditEvent(value: unknown, index: number): StaffAuditEvent {
+  const record = asRecord(value) ?? {};
+  const customer =
+    customerFromUnknown(record.customer) ??
+    customerFromUnknown(record.user) ??
+    customerFromUnknown(record);
+  const staff = asRecord(record.staff) ?? record;
+  return {
+    id:
+      pickString(record.id, record.eventId, record.event_id) ??
+      `audit_${index}`,
+    at:
+      pickString(
+        record.at,
+        record.createdAt,
+        record.created_at,
+        record.timestamp,
+        record.occurredAt,
+        record.occurred_at,
+      ) ?? new Date().toISOString(),
+    action: parseAction(record.action ?? record.type ?? record.kind),
+    success: parseSuccess(record),
+    reason: pickString(record.reason, record.message, record.error),
+    codes: codesFromRecord(record),
+    staffName: pickString(
+      staff.fullName,
+      staff.full_name,
+      staff.staffName,
+      staff.staff_name,
+      record.staffName,
+      record.staff_name,
+    ),
+    staffCode: pickString(
+      staff.employeeCode,
+      staff.employee_code,
+      staff.staffCode,
+      staff.staff_code,
+      record.staffCode,
+      record.staff_code,
+    ),
+    customerName: customer
+      ? [customer.firstName, customer.lastName].filter(Boolean).join(" ") || "Customer"
+      : "Customer",
+    phoneMasked:
+      customer?.phoneMasked ??
+      pickString(record.phoneMasked, record.phone_masked, record.maskedPhone),
+  };
+}
+
+export function parseAuditEvents(body: unknown): StaffAuditEvent[] {
+  if (Array.isArray(body)) return body.map(parseAuditEvent);
+  const payload = asRecord(body) ?? {};
+  const list =
+    payload.events ??
+    payload.items ??
+    payload.rows ??
+    payload.results ??
+    payload.scans ??
+    payload.confirms ??
+    payload.reprints;
+  return Array.isArray(list) ? list.map(parseAuditEvent) : [];
 }

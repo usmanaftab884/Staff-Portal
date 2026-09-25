@@ -28,6 +28,17 @@ export function pickString(...values: unknown[]): string | undefined {
   return undefined;
 }
 
+export function pickNumber(...values: unknown[]): number | undefined {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return undefined;
+}
+
 export function errorMessageFromBody(body: unknown, fallback: string) {
   const record = asRecord(body);
   if (!record) return fallback;

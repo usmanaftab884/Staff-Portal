@@ -49,3 +49,18 @@ export function isSameDay(iso: string, now = new Date()) {
     date.getDate() === now.getDate()
   );
 }
+
+export function karachiDate(now = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Karachi",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
+export function shiftIsoDate(yyyyMmDd: string, days: number) {
+  const [year, month, day] = yyyyMmDd.split("-").map(Number);
+  const date = new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, (day ?? 1) + days));
+  return date.toISOString().slice(0, 10);
+}

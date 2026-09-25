@@ -55,6 +55,10 @@ body {
   outline: none;
 }
 
+.field.has-icon {
+  padding-left: 2.75rem;
+}
+
 .field::placeholder {
   color: color-mix(in srgb, var(--muted) 80%, transparent);
 }

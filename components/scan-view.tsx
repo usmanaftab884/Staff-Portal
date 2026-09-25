@@ -493,6 +493,23 @@ function ResultPanel({
             </ul>
           ) : null}
 
+          {done && (confirmResult?.pointsDeducted != null || confirmResult?.newBalance != null) ? (
+            <div className="rounded-2xl bg-background p-3 text-sm">
+              {confirmResult.pointsDeducted != null ? (
+                <p>
+                  <span className="text-muted">Points deducted</span>
+                  <span className="mt-1 block font-medium tabular-nums">{confirmResult.pointsDeducted}</span>
+                </p>
+              ) : null}
+              {confirmResult.newBalance != null ? (
+                <p className={confirmResult.pointsDeducted != null ? "mt-3" : undefined}>
+                  <span className="text-muted">New balance</span>
+                  <span className="mt-1 block font-medium tabular-nums">{confirmResult.newBalance}</span>
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
           {done && allottedCodes.length ? (
             <div className="voucher-preview-list rounded-2xl bg-[#f3eee4] p-4">
               {allottedCodes.map((code) => (

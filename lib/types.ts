@@ -42,6 +42,51 @@ export type ConfirmResponse = {
   alreadyConfirmed: boolean;
   customer?: CustomerPreview;
   entries: LuckyDrawEntry[];
+  pointsDeducted?: number;
+  newBalance?: number;
+};
+
+export type StaffDashboardCounters = {
+  scans: number;
+  validScans: number;
+  invalidScans: number;
+  confirms: number;
+  entriesRedeemed: number;
+  reprints: number;
+  uniqueCustomers: number;
+};
+
+export type StaffDashboardCustomer = {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  phoneMasked?: string;
+  scanCount: number;
+  confirmCount: number;
+  reprintCount: number;
+};
+
+export type StaffDashboard = {
+  date: string;
+  timezone: string;
+  mine: StaffDashboardCounters;
+  mall: StaffDashboardCounters;
+  customersToday: StaffDashboardCustomer[];
+};
+
+export type StaffAuditAction = "validate" | "confirm" | "reprint";
+
+export type StaffAuditEvent = {
+  id: string;
+  at: string;
+  action: StaffAuditAction;
+  success: boolean;
+  reason?: string;
+  codes: string[];
+  staffName?: string;
+  staffCode?: string;
+  customerName: string;
+  phoneMasked?: string;
 };
 
 export type ReprintResponse = {

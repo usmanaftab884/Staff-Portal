@@ -1,43 +1,73 @@
 import { logout } from "./auth";
 import { ApiError, errorMessageFromBody, unwrapPayload } from "./api-parse";
 import {
+  parseAuditEvents,
   parseConfirm,
+  parseDashboard,
   parseReprint,
   parseStaffLogin,
   parseValidate,
 } from "./staff-parse";
-import type { ConfirmResponse, LuckyDrawEntry, StaffLoginResponse, ValidateResponse } from "./types";
+import type {
+  ConfirmResponse,
+  LuckyDrawEntry,
+  StaffAuditAction,
+  StaffAuditEvent,
+  StaffDashboard,
+  StaffLoginResponse,
+  ValidateResponse,
+} from "./types";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/backend").replace(
   /\/$/,
   "",
 );
 
+type QueryValue = string | number | boolean | undefined;
+
 type StaffFetchOptions = {
   path: string;
+  method?: "GET" | "POST";
   body?: unknown;
+  query?: Record<string, QueryValue>;
   token?: string | null;
   allowUnauthorizedLogout?: boolean;
 };
 
+function staffUrl(path: string, query?: Record<string, QueryValue>) {
+  const search = new URLSearchParams();
+  if (query) {
+    for (const [key, value] of Object.entries(query)) {
+      if (value === undefined || value === "") continue;
+      search.set(key, String(value));
+    }
+  }
+  const qs = search.toString();
+  return `${API_BASE}${path}${qs ? `?${qs}` : ""}`;
+}
+
 async function staffFetch({
   path,
+  method = "POST",
   body,
+  query,
   token,
   allowUnauthorizedLogout = true,
 }: StaffFetchOptions) {
   const headers: HeadersInit = {
-    "Content-Type": "application/json",
     Accept: "application/json",
   };
+  if (method !== "GET") {
+    headers["Content-Type"] = "application/json";
+  }
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
+  const response = await fetch(staffUrl(path, query), {
+    method,
     headers,
-    body: JSON.stringify(body ?? {}),
+    body: method === "GET" ? undefined : JSON.stringify(body ?? {}),
   });
 
   const raw: unknown = await response.json().catch(() => null);
@@ -116,4 +146,44 @@ export async function reprintEntry(
     token: accessToken,
   });
   return parseReprint(payload);
+}
+
+export async function getStaffDashboard(
+  accessToken: string,
+  date?: string,
+): Promise<StaffDashboard> {
+  const { payload } = await staffFetch({
+    path: "/membership/staff/dashboard",
+    method: "GET",
+    query: { date },
+    token: accessToken,
+  });
+  return parseDashboard(payload);
+}
+
+export async function getStaffAuditEvents(
+  accessToken: string,
+  query?: {
+    action?: StaffAuditAction;
+    from?: string;
+    to?: string;
+    limit?: number;
+    allStaff?: boolean;
+    staffId?: string;
+  },
+): Promise<StaffAuditEvent[]> {
+  const { payload } = await staffFetch({
+    path: "/membership/staff/audit/events",
+    method: "GET",
+    query: {
+      action: query?.action,
+      from: query?.from,
+      to: query?.to,
+      limit: query?.limit,
+      allStaff: query?.allStaff ? true : undefined,
+      staffId: query?.staffId,
+    },
+    token: accessToken,
+  });
+  return parseAuditEvents(payload);
 }

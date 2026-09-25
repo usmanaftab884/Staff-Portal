@@ -29,7 +29,7 @@ function pageCopy(pathname: string, staff: StaffProfile | null) {
     return { title: "Scan QR", subtitle: "Camera opens on tap, then details appear automatically" };
   }
   if (pathname.startsWith("/history")) {
-    return { title: "This session", subtitle: "Activity from this browser tab" };
+    return { title: "History", subtitle: "Filter by date range" };
   }
   return { title: "Giga Mall", subtitle: "Staff Panel" };
 }
