@@ -12,13 +12,14 @@ import {
   stopStream,
 } from "@/lib/camera";
 import { playScanBeep } from "@/lib/beep";
-import { customerDisplayName, initials } from "@/lib/format";
+import { customerDisplayName, formatDateTime, initials } from "@/lib/format";
+import { normalizeScanToken } from "@/lib/scan-token";
 import { useScanSession } from "@/lib/scan-session";
 import { useSessionLog } from "@/lib/session-log";
 import type { ConfirmResponse, LuckyDrawEntry, ValidateResponse } from "@/lib/types";
+import { BarcodeCamera } from "./barcode-camera";
 import { CameraIcon, CheckIcon, CloseIcon, PrinterIcon } from "./icons";
 import { PrintSlips } from "./print-slips";
-import { QrCamera } from "./qr-camera";
 import { VoucherTicket } from "./voucher-ticket";
 import { reasonToBadge, StatusBadge } from "./status-badge";
 
@@ -142,12 +143,13 @@ export function ScanView({
   }
 
   function handleDetect(value: string) {
+    if (phase === "verifying" || phase === "redeeming") return;
     playScanBeep();
     void runValidate(value);
   }
 
   async function runValidate(rawToken: string) {
-    const nextToken = rawToken.trim();
+    const nextToken = normalizeScanToken(rawToken);
     if (!nextToken) return;
     setToken(nextToken);
     closeCamera();
@@ -171,7 +173,7 @@ export function ScanView({
       }
     } catch (err) {
       setPhase("idle");
-      setError(err instanceof Error ? err.message : "Could not validate this QR.");
+      setError(err instanceof Error ? err.message : "Could not validate this barcode.");
     }
   }
 
@@ -181,7 +183,7 @@ export function ScanView({
   }
 
   async function runConfirm() {
-    const nextToken = token.trim();
+    const nextToken = normalizeScanToken(token);
     if (!nextToken) return;
     setPhase("redeeming");
     setBusyLabel("Confirming…");
@@ -206,7 +208,7 @@ export function ScanView({
           ? err.message
           : err instanceof Error
             ? err.message
-            : "Could not confirm this QR.",
+            : "Could not confirm this barcode.",
       );
     } finally {
       setBusyLabel("");
@@ -241,7 +243,6 @@ export function ScanView({
     reasonToBadge(validateResult.reason) === "already_used";
 
   const showCamera = cameraOn || phase === "idle";
-  const showFallback = !cameraOn && (Boolean(error) || insecurePage);
 
   return (
     <div
@@ -261,9 +262,9 @@ export function ScanView({
         {overlay ? (
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h1 className="text-xl font-semibold tracking-tight">Scan QR</h1>
+              <h1 className="text-xl font-semibold tracking-tight">Scan barcode</h1>
               <p className="mt-1 text-sm text-muted">
-                Point the camera at the customer QR. Details appear automatically.
+                Scan the Code 128 barcode, or type the 12-digit code. Validate does not redeem.
               </p>
             </div>
             <button type="button" className="btn-secondary" onClick={dismissOverlay}>
@@ -273,9 +274,9 @@ export function ScanView({
           </div>
         ) : (
           <div className="lg:hidden">
-            <h1 className="text-2xl font-semibold tracking-tight">Scan QR</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Scan barcode</h1>
             <p className="mt-2 text-sm text-muted">
-              Scan or paste the customer QR token, then confirm to allot voucher codes.
+              Scan the Code 128 barcode or type the 12-digit code, then confirm to allot voucher codes.
             </p>
           </div>
         )}
@@ -296,7 +297,7 @@ export function ScanView({
 
         {showCamera ? (
         <div className="relative aspect-4/5 overflow-hidden rounded-3xl border border-border bg-[#1a1a1a] sm:aspect-5/4">
-          <QrCamera
+          <BarcodeCamera
             ref={videoRef}
             stream={cameraStream}
             onDetect={handleDetect}
@@ -319,10 +320,10 @@ export function ScanView({
             ) : (
               <p className="text-sm text-white">
                 {cameraOn
-                  ? "Point the camera at the customer QR. It will validate automatically."
+                  ? "Point the camera at the Code 128 barcode. It will validate automatically."
                   : insecurePage
                     ? "Open this page over HTTPS on the phone to use the camera."
-                    : "Start the camera to scan, or paste the QR token below."}
+                    : "Start the camera, use a USB scanner, or type the 12-digit code below."}
               </p>
             )}
             {overlay && cameraOn ? null : (
@@ -339,15 +340,18 @@ export function ScanView({
         </div>
         ) : null}
 
-        {(!overlay || showFallback) ? (
         <form onSubmit={onManualSubmit} className="card space-y-3 p-4">
           <label className="block space-y-1.5">
-            <span className="text-sm text-muted">QR token</span>
-            <textarea
+            <span className="text-sm text-muted">Scanned code</span>
+            <input
+              type="text"
+              inputMode="text"
+              autoComplete="off"
+              autoCorrect="off"
               value={token}
               onChange={(event) => setToken(event.target.value)}
-              className="field min-h-24 font-mono text-sm"
-              placeholder="Paste the raw token from the customer QR"
+              className="field font-mono text-sm tracking-wide"
+              placeholder="12-digit barcode, or type it here"
               spellCheck={false}
             />
           </label>
@@ -356,7 +360,6 @@ export function ScanView({
             {phase === "verifying" ? "Checking…" : "Validate"}
           </button>
         </form>
-        ) : null}
       </section>
 
       {overlay && cameraOn && phase === "idle" ? null : (
@@ -364,7 +367,7 @@ export function ScanView({
         {phase === "verifying" ? (
           <div className="card flex min-h-72 flex-col items-center justify-center px-6 py-12 text-center">
             <div className="mb-4 h-10 w-10 animate-pulse rounded-full bg-nav-active" />
-            <h2 className="text-lg font-semibold">Checking QR</h2>
+            <h2 className="text-lg font-semibold">Checking barcode</h2>
             <p className="mt-2 text-sm text-muted">Validating without redeeming.</p>
           </div>
         ) : phase === "idle" && !validateResult ? (
@@ -427,6 +430,8 @@ function ResultPanel({
   const valid = validateResult?.valid === true;
   const customer = confirmResult?.customer ?? validateResult?.customer;
   const entries = confirmResult?.entries ?? validateResult?.entries ?? [];
+  const entryCount = validateResult?.entryCount ?? entries.length;
+  const expiresAt = validateResult?.expiresAt;
   const name = customerDisplayName(customer);
   const badge = done
     ? "redeemed"
@@ -439,10 +444,10 @@ function ResultPanel({
       ? "Already confirmed"
       : "Codes allotted"
     : valid
-      ? "QR is valid"
+      ? "Barcode is valid"
       : alreadyRedeemed
         ? "Already redeemed"
-        : "QR is not valid";
+        : "Barcode is not valid";
 
   return (
     <div
@@ -476,7 +481,12 @@ function ResultPanel({
 
           <div className="rounded-2xl bg-background p-3 text-sm">
             <p className="text-muted">Lucky-draw entries</p>
-            <p className="mt-1 font-medium">{entries.length} on this QR</p>
+            <p className="mt-1 font-medium">
+              {entryCount} on this barcode
+            </p>
+            {expiresAt ? (
+              <p className="mt-2 text-muted">Expires {formatDateTime(expiresAt)}</p>
+            ) : null}
           </div>
 
           {entries.length ? (
@@ -533,7 +543,7 @@ function ResultPanel({
         <p className="px-5 py-6 text-sm text-muted">
           {validateResult && !validateResult.valid
             ? validateResult.reason
-            : "This QR is not in the system. Ask the guest to generate a new one."}
+            : "This barcode is not in the system. Ask the guest to generate a new one."}
         </p>
       )}
 

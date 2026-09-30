@@ -27,6 +27,8 @@ export type ValidateSuccess = {
   valid: true;
   customer: CustomerPreview;
   entries: LuckyDrawEntry[];
+  entryCount?: number;
+  expiresAt?: string;
 };
 
 export type ValidateFailure = {
@@ -34,6 +36,9 @@ export type ValidateFailure = {
   reason: string;
   customer?: CustomerPreview;
   entries?: LuckyDrawEntry[];
+  entryCount?: number;
+  expiresAt?: string;
+  status?: number;
 };
 
 export type ValidateResponse = ValidateSuccess | ValidateFailure;

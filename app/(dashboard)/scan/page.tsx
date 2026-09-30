@@ -1,7 +1,7 @@
 import { ScanLaunch } from "@/components/scan-launch";
 
 export const metadata = {
-  title: "Scan QR",
+  title: "Scan barcode",
 };
 
 export default function ScanPage() {

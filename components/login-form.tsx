@@ -49,7 +49,7 @@ export function LoginForm() {
           <p className="text-lg font-semibold tracking-tight">Giga Mall</p>
           <p className="text-sm text-muted">Staff Panel</p>
           <p className="mt-4 text-sm text-muted">
-            Sign in to validate customer QR codes and print lucky-draw vouchers.
+            Sign in to validate customer barcodes and print lucky-draw vouchers.
           </p>
         </div>
 

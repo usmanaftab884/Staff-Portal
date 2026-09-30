@@ -26,7 +26,7 @@ function pageCopy(pathname: string, staff: StaffProfile | null) {
     return { title: staff?.fullName ?? "Staff", subtitle: "" };
   }
   if (pathname.startsWith("/scan")) {
-    return { title: "Scan QR", subtitle: "Camera opens on tap, then details appear automatically" };
+    return { title: "Scan barcode", subtitle: "Code 128, USB gun, or type the 12-digit code" };
   }
   if (pathname.startsWith("/history")) {
     return { title: "History", subtitle: "Filter by date range" };

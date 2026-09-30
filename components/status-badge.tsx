@@ -23,9 +23,13 @@ export function reasonToBadge(reason?: string): BadgeStatus {
   if (value.includes("already") || value.includes("redeemed") || value.includes("consumed")) {
     return "already_used";
   }
-  if (value.includes("expired")) return "expired";
+  if (value.includes("expired") || value.includes("410")) return "expired";
   if (value.includes("revoked")) return "revoked";
-  if (value.includes("not_found") || value.includes("invalid")) return "invalid";
+  if (value.includes("not_found") || value.includes("404")) return "invalid";
+  if (value.includes("invalid_format") || value.includes("format") || value.includes("400")) {
+    return "invalid";
+  }
+  if (value.includes("invalid")) return "invalid";
   return "invalid";
 }
 

@@ -1,5 +1,6 @@
 import { logout } from "./auth";
 import { ApiError, errorMessageFromBody, unwrapPayload } from "./api-parse";
+import { normalizeScanToken } from "./scan-token";
 import {
   parseAuditEvents,
   parseConfirm,
@@ -108,13 +109,13 @@ export async function validateQr(
   try {
     const { payload, status } = await staffFetch({
       path: "/membership/staff/lucky-draw/validate",
-      body: { token },
+      body: { token: normalizeScanToken(token) },
       token: accessToken,
     });
-    return parseValidate(payload, status >= 200 && status < 300);
+    return parseValidate(payload, status >= 200 && status < 300, status);
   } catch (error) {
     if (error instanceof ApiError && error.status !== 401) {
-      return { valid: false, reason: error.message };
+      return parseValidate({ reason: error.message }, false, error.status);
     }
     throw error;
   }
@@ -126,10 +127,10 @@ export async function confirmQr(
 ): Promise<ConfirmResponse> {
   const { payload } = await staffFetch({
     path: "/membership/staff/lucky-draw/confirm",
-    body: { token },
-    token: accessToken,
-  });
-  return parseConfirm(payload);
+      body: { token: normalizeScanToken(token) },
+      token: accessToken,
+    });
+    return parseConfirm(payload);
 }
 
 export async function reprintEntry(

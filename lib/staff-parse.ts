@@ -84,7 +84,19 @@ export function parseStaffLogin(body: unknown): StaffLoginResponse {
   return { accessToken, staff };
 }
 
-export function parseValidate(body: unknown, httpOk: boolean): ValidateResponse {
+function reasonFromStatus(status: number | undefined, fallback: string) {
+  if (status === 400) return fallback || "invalid_format";
+  if (status === 404) return fallback === "invalid" ? "not_found" : fallback || "not_found";
+  if (status === 410) return fallback === "invalid" ? "expired" : fallback || "expired";
+  if (status === 409) return fallback || "already_redeemed";
+  return fallback;
+}
+
+export function parseValidate(
+  body: unknown,
+  httpOk: boolean,
+  status?: number,
+): ValidateResponse {
   const payload = asRecord(body) ?? {};
   const customer =
     customerFromUnknown(payload.customer) ??
@@ -93,22 +105,36 @@ export function parseValidate(body: unknown, httpOk: boolean): ValidateResponse 
   const entries = entriesFromUnknown(
     payload.entries ?? payload.luckyDrawEntries ?? payload.lucky_draw_entries,
   );
-  const reason =
-    pickString(payload.reason, payload.message, payload.error) ?? "invalid";
+  const entryCount = pickNumber(
+    payload.entryCount,
+    payload.entry_count,
+    entries.length,
+  );
+  const expiresAt = pickString(payload.expiresAt, payload.expires_at);
+  const reason = reasonFromStatus(
+    status,
+    pickString(payload.reason, payload.message, payload.error) ?? "invalid",
+  );
   const validFlag = payload.valid;
 
   if (validFlag === false || (!httpOk && validFlag !== true)) {
-    return { valid: false, reason, customer, entries };
+    return { valid: false, reason, customer, entries, entryCount, expiresAt, status };
   }
 
   if (validFlag === true || (httpOk && customer && entries.length >= 0)) {
     if (!customer) {
-      return { valid: false, reason: reason === "invalid" ? "not_found" : reason };
+      return {
+        valid: false,
+        reason: reason === "invalid" ? "not_found" : reason,
+        entryCount,
+        expiresAt,
+        status,
+      };
     }
-    return { valid: true, customer, entries };
+    return { valid: true, customer, entries, entryCount, expiresAt };
   }
 
-  return { valid: false, reason, customer, entries };
+  return { valid: false, reason, customer, entries, entryCount, expiresAt, status };
 }
 
 export function parseConfirm(body: unknown): ConfirmResponse {

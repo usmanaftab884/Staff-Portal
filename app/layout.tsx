@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     default: "Giga Mall Staff",
     template: "%s · Giga Mall Staff",
   },
-  description: "Staff portal to validate customer QR codes and print lucky-draw vouchers.",
+  description: "Staff portal to validate customer barcodes and print lucky-draw vouchers.",
   icons: {
     icon: [{ url: "/icon.png", type: "image/png" }],
     apple: "/icon.png",

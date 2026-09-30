@@ -63,7 +63,7 @@ export function HomeView() {
       <div className="lg:hidden">
         <button type="button" className="btn-scan w-full rounded-2xl py-3.5" onClick={() => void startScan()}>
           <ScanIcon className="h-4 w-4" />
-          Scan QR
+          Scan barcode
         </button>
       </div>
 
@@ -95,7 +95,7 @@ export function HomeView() {
         <div className="hidden pr-1 lg:block">
           <button type="button" className="btn-scan" onClick={() => void startScan()}>
             <ScanIcon className="h-4 w-4" />
-            Scan QR
+            Scan barcode
           </button>
         </div>
       </div>
